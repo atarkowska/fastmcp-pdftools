@@ -6,7 +6,7 @@ A Model Context Protocol (MCP) server for extracting text content from PDF files
 comprehensive error handling, encoding detection, and standardised JSON output.
 
 Features:
-- Text extraction from PDF files using PyPDF2
+- Text extraction from PDF files using pypdf
 - Error handling for corrupt, encrypted, or invalid PDFs
 - Standardized JSON output format with detailed metadata
 
@@ -17,13 +17,11 @@ Email: ola@entrypoint.tech
 
 
 import os
-import io
 import logging
-import asyncio
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from pathlib import Path
 
-import PyPDF2
+import pypdf
 from fastmcp import FastMCP
 
 
@@ -31,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-mcp = FastMCP("pdf-reader")
+mcp = FastMCP("fastmcp-pdftools")
 
 
 def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
@@ -42,20 +40,14 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
         with open(file_path, 'rb') as pdf_file:
             # Create PDF reader
             try:
-                pdf_reader = PyPDF2.PdfReader(pdf_file)
-            except PyPDF2.errors.PdfReadError as e:
+                pdf_reader = pypdf.PdfReader(pdf_file)
+            except pypdf.errors.PdfReadError as e:
                 return {
                     "success": False,
                     "error": "PDF_READ_ERROR",
                     "message": f"Could not read PDF file: {str(e)}"
                 }
-            except Exception as e:
-                return {
-                    "success": False,
-                    "error": "UNKNOWN_PDF_ERROR", 
-                    "message": f"Unexpected error reading PDF: {str(e)}"
-                }
-            
+
             # Check if PDF is encrypted
             if pdf_reader.is_encrypted:
                 return {
@@ -63,28 +55,34 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                     "error": "PDF_ENCRYPTED",
                     "message": "PDF file is encrypted and requires a password"
                 }
-            
+
             # Get basic PDF info
             num_pages = len(pdf_reader.pages)
             metadata = pdf_reader.metadata or {}
-            
+
             # Extract text from all pages
             text_content = ""
             extracted_pages = 0
-            
+
             for page_num, page in enumerate(pdf_reader.pages, 1):
                 try:
                     page_text = page.extract_text()
                     if page_text:
                         text_content += f"--- Page {page_num} ---\n{page_text}\n\n"
                         extracted_pages += 1
-                except Exception as e:
-                    logger.warning(f"Could not extract text from page {page_num}: {e}")
-                    text_content += f"--- Page {page_num} ---\n[Error extracting text from this page]\n\n"
-            
+                except (pypdf.errors.PdfReadError, AttributeError, KeyError) as e:
+                    logger.warning(
+                        "Could not extract text from page %s: %s",
+                        page_num, e
+                    )
+                    text_content += (
+                        f"--- Page {page_num} ---\n"
+                        "[Error extracting text from this page]\n\n"
+                    )
+
             # Clean up the text
             text_content = text_content.strip()
-            
+
             return {
                 "success": True,
                 "data": {
@@ -93,7 +91,7 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                     "pages_extracted": extracted_pages,
                     "metadata": {
                         "title": metadata.get("/Title", "Unknown"),
-                        "author": metadata.get("/Author", "Unknown"), 
+                        "author": metadata.get("/Author", "Unknown"),
                         "subject": metadata.get("/Subject", "Unknown"),
                         "creator": metadata.get("/Creator", "Unknown"),
                         "producer": metadata.get("/Producer", "Unknown"),
@@ -102,7 +100,7 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                     }
                 }
             }
-            
+
     except FileNotFoundError:
         return {
             "success": False,
@@ -115,12 +113,12 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
             "error": "PERMISSION_DENIED",
             "message": f"Permission denied accessing: {file_path}"
         }
-    except Exception as e:
-        logger.error(f"Unexpected error processing PDF {file_path}: {e}")
+    except OSError as e:
+        logger.error("OS error processing PDF %s: %s", file_path, e)
         return {
             "success": False,
-            "error": "UNEXPECTED_ERROR",
-            "message": f"Unexpected error: {str(e)}"
+            "error": "FILE_SYSTEM_ERROR",
+            "message": f"File system error: {str(e)}"
         }
 
 
@@ -128,28 +126,34 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
 async def read_local_pdf(path: str) -> Dict[str, Any]:
     """
     Read and extract text content from a local PDF file.
-    
+
     Args:
         path: Absolute or relative path to the PDF file
-        
+
     Returns:
         Dictionary with success status, extracted text, and metadata
     """
-    logger.info(f"Attempting to read PDF: {path}")
-    
+    logger.info("Attempting to read PDF: %s", path)
+
     # Convert to absolute path for consistency
     abs_path = os.path.abspath(path)
-    logger.info(f"Resolved absolute path: {abs_path}")
-    
+    logger.info("Resolved absolute path: %s", abs_path)
+
     # Extract text
     result = extract_text_from_pdf(abs_path)
-    
+
     if result["success"]:
-        logger.info(f"Successfully extracted text from PDF: {abs_path}")
-        logger.info(f"Pages: {result['data']['page_count']}, Characters: {len(result['data']['text'])}")
+        logger.info("Successfully extracted text from PDF: %s", abs_path)
+        logger.info(
+            "Pages: %s, Characters: %s",
+            result['data']['page_count'],
+            len(result['data']['text'])
+        )
     else:
-        logger.error(f"Failed to extract text from PDF: {result['message']}")
-    
+        logger.error(
+            "Failed to extract text from PDF: %s", result['message']
+        )
+
     return result
 
 
@@ -157,30 +161,30 @@ async def read_local_pdf(path: str) -> Dict[str, Any]:
 async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
     """
     List all PDF files in a given directory.
-    
+
     Args:
         directory: Directory path to search for PDFs (default: current directory)
-        
+
     Returns:
         Dictionary with list of PDF files and their basic info
     """
     try:
         dir_path = Path(directory).resolve()
-        
+
         if not dir_path.exists():
             return {
                 "success": False,
                 "error": "DIRECTORY_NOT_FOUND",
                 "message": f"Directory does not exist: {directory}"
             }
-        
+
         if not dir_path.is_dir():
             return {
                 "success": False,
                 "error": "NOT_A_DIRECTORY",
                 "message": f"Path is not a directory: {directory}"
             }
-        
+
         pdf_files = []
         for pdf_path in dir_path.glob("**/*.pdf"):
             try:
@@ -191,9 +195,9 @@ async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
                     "size_bytes": stat.st_size,
                     "modified": stat.st_mtime
                 })
-            except Exception as e:
-                logger.warning(f"Could not get info for {pdf_path}: {e}")
-        
+            except (OSError, PermissionError) as e:
+                logger.warning("Could not get info for %s: %s", pdf_path, e)
+
         return {
             "success": True,
             "data": {
@@ -202,8 +206,8 @@ async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
                 "files": sorted(pdf_files, key=lambda x: x["name"])
             }
         }
-        
-    except Exception as e:
+
+    except (OSError, PermissionError, ValueError) as e:
         return {
             "success": False,
             "error": "DIRECTORY_ACCESS_ERROR",
@@ -211,21 +215,16 @@ async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
         }
 
 
-async def main():
+def main():
     """
     Start the MCP server with HTTP transport.
     """
-    logger.info("Starting PDF Reader MCP Server on port 8000...")
+    logger.info("Starting PDF Reader MCP Server...")
     logger.info("Available tools:")
-    logger.info(" - read_pdf_file: Extract text from a PDF file")
+    logger.info(" - read_local_pdf: Extract text from a PDF file")
     logger.info(" - list_pdf_files: List PDF files in a directory")
-    
-    try:
-        await mcp.run_async()
-    except Exception as e:
-        logger.error(f"Server failed to start: {e}")
-        raise
+    mcp.run()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
