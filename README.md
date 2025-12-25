@@ -1,5 +1,7 @@
 # PDF Reader
 
+mcp-name: io.github.atarkowska/fastmcp-pdftools
+
 This project is a simple PDF reader server allowing to read  PDF files.
 
 ## Configuration
@@ -14,8 +16,6 @@ Add the following to your `claude_desktop_config.json`:
         "fastmcp-pdftools": {
             "command": "uvx",
             "args": [
-                "--from",
-                "git+https://github.com/atarkowska/fastmcp-pdftools@main",
                 "fastmcp-pdftools"
             ]
         }

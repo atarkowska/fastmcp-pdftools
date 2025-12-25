@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastmcp-pdftools"
-version = "0.1.0"
+version = "0.1.3"
 description = "MCP PDF reader server allowing to read  PDF files"
 authors = [
   { name = "Ola Tarkowska", email = "ola@entrypoint.tech" }
@@ -32,8 +32,7 @@ dev = [
 ]
 
 [project.scripts]
-fastmcp-pdftools = "src.fastmcp_pdftools.server:main"
-
+fastmcp-pdftools = "fastmcp_pdftools.server:main"
 
 [tool.hatch.build.targets.wheel]
-include = ["server.py"]
+packages = ["src/fastmcp_pdftools"]
