@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "fastmcp-pdftools"
-version = "0.2.1"
+version = "0.2.2"
 description = "MCP PDF reader server allowing to read  PDF files"
 authors = [
   { name = "Ola Tarkowska", email = "ola@entrypoint.tech" }
@@ -23,7 +23,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "fastmcp>=3.2.0",
-    "pypdf>=6.0.0",
+    "pypdf>=6.10.2",
 ]
 
 [project.optional-dependencies]
