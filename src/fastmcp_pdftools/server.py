@@ -2,8 +2,9 @@
 """
 PDF Reader MCP Server
 
-A Model Context Protocol (MCP) server for extracting text content from PDF files with
-comprehensive error handling, encoding detection, and standardised JSON output.
+A Model Context Protocol (MCP) server for extracting text content from PDF
+files with comprehensive error handling, encoding detection, and standardised
+JSON output.
 
 Features:
 - Text extraction from PDF files using pypdf
@@ -15,15 +16,13 @@ Email: ola@entrypoint.tech
 
 """
 
-
-import os
 import logging
-from typing import Dict, Any
+import os
 from pathlib import Path
+from typing import Any, Dict
 
 import pypdf
 from fastmcp import FastMCP
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,7 +36,7 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
     Extract text from PDF with comprehensive error handling.
     """
     try:
-        with open(file_path, 'rb') as pdf_file:
+        with open(file_path, "rb") as pdf_file:
             # Create PDF reader
             try:
                 pdf_reader = pypdf.PdfReader(pdf_file)
@@ -45,7 +44,7 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                 return {
                     "success": False,
                     "error": "PDF_READ_ERROR",
-                    "message": f"Could not read PDF file: {str(e)}"
+                    "message": f"Could not read PDF file: {str(e)}",
                 }
 
             # Check if PDF is encrypted
@@ -53,7 +52,7 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                 return {
                     "success": False,
                     "error": "PDF_ENCRYPTED",
-                    "message": "PDF file is encrypted and requires a password"
+                    "message": "PDF file is encrypted and requires a password",
                 }
 
             # Get basic PDF info
@@ -68,12 +67,17 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                 try:
                     page_text = page.extract_text()
                     if page_text:
-                        text_content += f"--- Page {page_num} ---\n{page_text}\n\n"
+                        text_content += (
+                            f"--- Page {page_num} ---\n{page_text}\n\n"
+                        )
                         extracted_pages += 1
-                except (pypdf.errors.PdfReadError, AttributeError, KeyError) as e:
+                except (
+                    pypdf.errors.PdfReadError,
+                    AttributeError,
+                    KeyError,
+                ) as e:
                     logger.warning(
-                        "Could not extract text from page %s: %s",
-                        page_num, e
+                        "Could not extract text from page %s: %s", page_num, e
                     )
                     text_content += (
                         f"--- Page {page_num} ---\n"
@@ -95,30 +99,34 @@ def extract_text_from_pdf(file_path: str) -> Dict[str, Any]:
                         "subject": metadata.get("/Subject", "Unknown"),
                         "creator": metadata.get("/Creator", "Unknown"),
                         "producer": metadata.get("/Producer", "Unknown"),
-                        "creation_date": str(metadata.get("/CreationDate", "Unknown")),
-                        "modification_date": str(metadata.get("/ModDate", "Unknown"))
-                    }
-                }
+                        "creation_date": str(
+                            metadata.get("/CreationDate", "Unknown")
+                        ),
+                        "modification_date": str(
+                            metadata.get("/ModDate", "Unknown")
+                        ),
+                    },
+                },
             }
 
     except FileNotFoundError:
         return {
             "success": False,
             "error": "FILE_NOT_FOUND",
-            "message": f"File not found: {file_path}"
+            "message": f"File not found: {file_path}",
         }
     except PermissionError:
         return {
             "success": False,
             "error": "PERMISSION_DENIED",
-            "message": f"Permission denied accessing: {file_path}"
+            "message": f"Permission denied accessing: {file_path}",
         }
     except OSError as e:
         logger.error("OS error processing PDF %s: %s", file_path, e)
         return {
             "success": False,
             "error": "FILE_SYSTEM_ERROR",
-            "message": f"File system error: {str(e)}"
+            "message": f"File system error: {str(e)}",
         }
 
 
@@ -146,13 +154,11 @@ async def read_local_pdf(path: str) -> Dict[str, Any]:
         logger.info("Successfully extracted text from PDF: %s", abs_path)
         logger.info(
             "Pages: %s, Characters: %s",
-            result['data']['page_count'],
-            len(result['data']['text'])
+            result["data"]["page_count"],
+            len(result["data"]["text"]),
         )
     else:
-        logger.error(
-            "Failed to extract text from PDF: %s", result['message']
-        )
+        logger.error("Failed to extract text from PDF: %s", result["message"])
 
     return result
 
@@ -163,7 +169,8 @@ async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
     List all PDF files in a given directory.
 
     Args:
-        directory: Directory path to search for PDFs (default: current directory)
+        directory: Directory path to search for PDFs (default: current
+                   directory)
 
     Returns:
         Dictionary with list of PDF files and their basic info
@@ -175,26 +182,28 @@ async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
             return {
                 "success": False,
                 "error": "DIRECTORY_NOT_FOUND",
-                "message": f"Directory does not exist: {directory}"
+                "message": f"Directory does not exist: {directory}",
             }
 
         if not dir_path.is_dir():
             return {
                 "success": False,
                 "error": "NOT_A_DIRECTORY",
-                "message": f"Path is not a directory: {directory}"
+                "message": f"Path is not a directory: {directory}",
             }
 
         pdf_files = []
         for pdf_path in dir_path.glob("**/*.pdf"):
             try:
                 stat = pdf_path.stat()
-                pdf_files.append({
-                    "name": pdf_path.name,
-                    "path": str(pdf_path),
-                    "size_bytes": stat.st_size,
-                    "modified": stat.st_mtime
-                })
+                pdf_files.append(
+                    {
+                        "name": pdf_path.name,
+                        "path": str(pdf_path),
+                        "size_bytes": stat.st_size,
+                        "modified": stat.st_mtime,
+                    }
+                )
             except (OSError, PermissionError) as e:
                 logger.warning("Could not get info for %s: %s", pdf_path, e)
 
@@ -203,15 +212,15 @@ async def list_pdf_files(directory: str = ".") -> Dict[str, Any]:
             "data": {
                 "directory": str(dir_path),
                 "pdf_count": len(pdf_files),
-                "files": sorted(pdf_files, key=lambda x: x["name"])
-            }
+                "files": sorted(pdf_files, key=lambda x: x["name"]),
+            },
         }
 
     except (OSError, PermissionError, ValueError) as e:
         return {
             "success": False,
             "error": "DIRECTORY_ACCESS_ERROR",
-            "message": f"Error accessing directory: {str(e)}"
+            "message": f"Error accessing directory: {str(e)}",
         }
 
 
